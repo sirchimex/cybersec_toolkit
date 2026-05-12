@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}My Progress — Phishing Sim{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="cyber-subtitle mb-1">// YOUR PERFORMANCE //</div>
+  <h1 class="cyber-title">Phishing Awareness Progress</h1>
+</div>
+<div class="row g-4 mb-4">
+  {% for scenario in scenarios %}
+  <div class="col-md-4">
+    <div class="cyber-card">
+      <div class="cyber-label mb-2">{{ scenario.title }}</div>
+      {% if scenario.pk in stats %}
+        {% with s=stats|dictsort:"0" %}
+        <div style="font-family:'Share Tech Mono',monospace;">
+          <div style="font-size:2rem;color:var(--cyber-cyan);">{{ stats|dictsort:"0" }}</div>
+        </div>
+        {% endwith %}
+        <p style="font-size:0.82rem;color:var(--cyber-muted);">Attempts: {{ stats|length }}</p>
+      {% else %}
+        <p style="color:var(--cyber-muted);font-size:0.85rem;">Not attempted yet.</p>
+        <a href="{% url 'phishing_sim:scenario' scenario.pk %}" class="btn btn-cyber" style="font-size:0.75rem;padding:6px 14px;">Start →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="cyber-card">
+  <div class="cyber-label mb-3">Recent Attempts</div>
+  {% if attempts %}
+  <table style="width:100%;font-size:0.85rem;">
+    <thead><tr style="color:var(--cyber-muted);font-family:'Share Tech Mono',monospace;font-size:0.75rem;letter-spacing:1px;">
+      <th style="padding:8px 0;">SCENARIO</th><th>SCORE</th><th>FOUND</th><th>DATE</th>
+    </tr></thead>
+    <tbody>
+    {% for a in attempts %}
+    <tr style="border-top:1px solid var(--cyber-border);">
+      <td style="padding:8px 0;color:var(--cyber-text);">{{ a.scenario.title }}</td>
+      <td style="color:{% if a.score_percent >= 80 %}var(--cyber-green){% elif a.score_percent >= 50 %}var(--cyber-yellow){% else %}var(--cyber-red){% endif %};">{{ a.score_percent|floatformat:0 }}%</td>
+      <td style="color:var(--cyber-muted);">{{ a.indicators_found }}/{{ a.total_indicators }}</td>
+      <td style="color:var(--cyber-muted);font-family:'Share Tech Mono',monospace;font-size:0.75rem;">{{ a.completed_at|date:"M d, Y" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--cyber-muted);">No attempts yet. <a href="{% url 'phishing_sim:home' %}" style="color:var(--cyber-cyan);">Try a scenario!</a></p>
+  {% endif %}
+</div>
+{% endblock %}

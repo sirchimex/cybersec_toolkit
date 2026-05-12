@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}File Integrity Checker{% endblock %}
+{% block extra_head %}
+<style>
+  .drop-zone { border: 2px dashed var(--cyber-border); border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; transition: all 0.3s; position: relative; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--cyber-purple); background: rgba(191,90,242,0.05); }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .result-match { background: rgba(0,255,136,0.05); border: 2px solid var(--cyber-green); border-radius: 8px; padding: 1.5rem; text-align: center; }
+  .result-mismatch { background: rgba(255,45,85,0.05); border: 2px solid var(--cyber-red); border-radius: 8px; padding: 1.5rem; text-align: center; }
+  .hash-display { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; word-break: break-all; letter-spacing: 1px; }
+  .history-row { border-bottom: 1px solid var(--cyber-border); padding: 0.75rem 0; font-size: 0.82rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="cyber-subtitle mb-1">// TOOL 04 //</div>
+  <h1 class="cyber-title">File Integrity Checker</h1>
+  <p style="color:var(--cyber-muted);font-size:0.9rem;">Upload a file to generate its SHA-256 hash and verify it hasn't been tampered with.</p>
+</div>
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="cyber-card">
+      <form id="integrityForm">
+        {% csrf_token %}
+        <div class="cyber-label mb-2">Upload File</div>
+        <div class="drop-zone mb-4" id="dropZone">
+          <input type="file" id="fileInput" name="file" onchange="onFileSelected()">
+          <div id="dropContent">
+            <div style="font-size:3rem;margin-bottom:0.5rem;">📁</div>
+            <div style="color:var(--cyber-muted);font-size:0.9rem;">Drop file here or click to browse</div>
+            <div style="color:var(--cyber-muted);font-size:0.75rem;margin-top:0.25rem;">Max 10MB</div>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="cyber-label">Expected Hash (optional)</label>
+          <input type="text" id="expectedHash" name="expected_hash" class="form-control cyber-input" placeholder="Paste SHA-256 hash to compare (64 hex chars)..." maxlength="64">
+          <div style="font-size:0.75rem;color:var(--cyber-muted);margin-top:4px;">Leave blank to just generate the hash</div>
+        </div>
+        <button type="button" id="checkBtn" class="btn btn-cyber w-100" style="border-color:var(--cyber-purple);color:var(--cyber-purple);" onclick="checkFile()" disabled>COMPUTE HASH</button>
+      </form>
+    </div>
+    <!-- Result -->
+    <div id="resultSection" style="display:none;margin-top:1rem;">
+      <div id="matchResult"></div>
+      <div class="cyber-card mt-3">
+        <div class="cyber-label mb-2">Hash Details</div>
+        <div class="mb-2">
+          <div style="font-size:0.75rem;color:var(--cyber-muted);margin-bottom:4px;">FILENAME</div>
+          <div id="resFilename" style="color:var(--cyber-text);font-size:0.9rem;"></div>
+        </div>
+        <div class="mb-2">
+          <div style="font-size:0.75rem;color:var(--cyber-muted);margin-bottom:4px;">FILE SIZE</div>
+          <div id="resSize" style="color:var(--cyber-text);font-size:0.9rem;"></div>
+        </div>
+        <div class="mb-2">
+          <div style="font-size:0.75rem;color:var(--cyber-muted);margin-bottom:4px;">SHA-256 HASH</div>
+          <div id="resSha256" class="hash-display" style="color:var(--cyber-cyan);"></div>
+        </div>
+        <button class="copy-btn mt-2" style="background:none;border:1px solid var(--cyber-border);color:var(--cyber-muted);border-radius:4px;padding:4px 10px;font-size:0.75rem;cursor:pointer;" onclick="copyHash()">
+          <i class="bi bi-clipboard"></i> Copy Hash
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="cyber-card mb-4">
+      <div class="cyber-label mb-2">📖 What is SHA-256?</div>
+      <p style="font-size:0.82rem;color:var(--cyber-muted);">SHA-256 is a cryptographic hash function that produces a unique 256-bit fingerprint of any file. Even changing a single byte produces a completely different hash.</p>
+      <p style="font-size:0.82rem;color:var(--cyber-muted);">Use cases: verifying downloaded software, detecting file tampering, forensic analysis.</p>
+    </div>
+    <div class="cyber-card mb-4">
+      <div class="cyber-label mb-2">💡 How to Use</div>
+      <ol style="font-size:0.82rem;color:var(--cyber-muted);padding-left:1.2rem;">
+        <li>Upload any file (document, image, executable)</li>
+        <li>The tool computes the SHA-256 hash</li>
+        <li>Optionally paste a known hash to compare</li>
+        <li>Green = file is authentic; Red = tampered!</li>
+      </ol>
+    </div>
+    {% if user.is_authenticated and recent_checks %}
+    <div class="cyber-card">
+      <div class="cyber-label mb-2">Recent Checks</div>
+      {% for check in recent_checks %}
+      <div class="history-row">
+        <div style="color:var(--cyber-text);">{{ check.filename|truncatechars:30 }}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--cyber-muted);">{{ check.sha256_hash|slice:":16" }}...</div>
+        <div>
+          {% if check.integrity_ok == True %}<span style="color:var(--cyber-green);font-size:0.75rem;">✅ Matched</span>
+          {% elif check.integrity_ok == False %}<span style="color:var(--cyber-red);font-size:0.75rem;">❌ Mismatch</span>
+          {% else %}<span style="color:var(--cyber-muted);font-size:0.75rem;">— Hash only</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('dragover'); }));
+['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('dragover'); }));
+dropZone.addEventListener('drop', ev => { fileInput.files = ev.dataTransfer.files; onFileSelected(); });
+
+function onFileSelected() {
+  const file = fileInput.files[0];
+  if (!file) return;
+  document.getElementById('dropContent').innerHTML = `
+    <div style="font-size:2rem;margin-bottom:0.5rem;">📄</div>
+    <div style="color:var(--cyber-cyan);font-family:'Share Tech Mono',monospace;">${file.name}</div>
+    <div style="color:var(--cyber-muted);font-size:0.75rem;">${(file.size/1024).toFixed(1)} KB</div>
+  `;
+  document.getElementById('checkBtn').disabled = false;
+}
+
+async function checkFile() {
+  const file = fileInput.files[0];
+  if (!file) return;
+  document.getElementById('checkBtn').textContent = 'COMPUTING...';
+  document.getElementById('checkBtn').disabled = true;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('expected_hash', document.getElementById('expectedHash').value.trim());
+  formData.append('csrfmiddlewaretoken', csrfToken);
+
+  const res = await fetch('/integrity/check/', { method: 'POST', body: formData });
+  const data = await res.json();
+  document.getElementById('checkBtn').textContent = 'COMPUTE HASH';
+  document.getElementById('checkBtn').disabled = false;
+
+  if (data.error) { alert('Error: ' + data.error); return; }
+
+  document.getElementById('resultSection').style.display = 'block';
+  document.getElementById('resFilename').textContent = data.filename;
+  document.getElementById('resSize').textContent = data.size_human;
+  document.getElementById('resSha256').textContent = data.sha256;
+
+  let resultHtml = '';
+  if (data.match_result === 'match') {
+    resultHtml = `<div class="result-match"><div style="font-size:2rem;">✅</div><div style="font-family:'Share Tech Mono',monospace;color:var(--cyber-green);font-size:1.1rem;margin-top:0.5rem;">FILE INTEGRITY VERIFIED</div><div style="color:var(--cyber-muted);font-size:0.85rem;margin-top:0.25rem;">File matches expected hash</div></div>`;
+  } else if (data.match_result === 'mismatch') {
+    resultHtml = `<div class="result-mismatch"><div style="font-size:2rem;">❌</div><div style="font-family:'Share Tech Mono',monospace;color:var(--cyber-red);font-size:1.1rem;margin-top:0.5rem;">INTEGRITY COMPROMISED</div><div style="color:var(--cyber-muted);font-size:0.85rem;margin-top:0.25rem;">File does NOT match expected hash</div></div>`;
+  } else {
+    resultHtml = `<div class="cyber-card" style="border-color:rgba(191,90,242,0.3);text-align:center;"><div style="font-size:2rem;">🔍</div><div style="color:var(--cyber-purple);font-family:'Share Tech Mono',monospace;">HASH GENERATED</div><div style="color:var(--cyber-muted);font-size:0.85rem;margin-top:0.25rem;">Copy and save for future verification</div></div>`;
+  }
+  document.getElementById('matchResult').innerHTML = resultHtml;
+  document.getElementById('resultSection').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function copyHash() {
+  const hash = document.getElementById('resSha256').textContent;
+  navigator.clipboard.writeText(hash);
+}
+</script>
+{% endblock %}

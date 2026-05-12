@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Phishing Simulator{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="cyber-subtitle mb-1">// TOOL 03 //</div>
+  <h1 class="cyber-title">Phishing Awareness Simulator</h1>
+  <p style="color:var(--cyber-muted);font-size:0.9rem;">Can you spot a phishing attempt? Click suspicious elements in each scenario and learn to protect yourself.</p>
+</div>
+<div class="row g-4">
+  {% for scenario in scenarios %}
+  <div class="col-md-4">
+    <div class="cyber-card h-100" style="border-color:{% if scenario.difficulty == 'easy' %}rgba(0,255,136,0.3){% elif scenario.difficulty == 'medium' %}rgba(255,214,10,0.3){% else %}rgba(255,45,85,0.3){% endif %};">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <span class="badge-cyber {% if scenario.difficulty == 'easy' %}badge-green{% elif scenario.difficulty == 'medium' %}badge-yellow{% else %}badge-red{% endif %}">{{ scenario.difficulty|upper }}</span>
+        {% if progress_map|length and scenario.pk in progress_map %}
+          <span class="badge-cyber" style="color:var(--cyber-cyan);">{{ progress_map|dictsort:"0"|last|last }}% last</span>
+        {% endif %}
+      </div>
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;">{% if scenario.scenario_type == 'email' %}📧{% else %}🌐{% endif %}</div>
+      <h3 style="font-family:'Share Tech Mono',monospace;font-size:0.95rem;color:var(--cyber-text);margin-bottom:0.5rem;">{{ scenario.title }}</h3>
+      <p style="font-size:0.82rem;color:var(--cyber-muted);margin-bottom:1.5rem;">{{ scenario.indicators.count }} suspicious element{{ scenario.indicators.count|pluralize }} to find</p>
+      <a href="{% url 'phishing_sim:scenario' scenario.pk %}" class="btn btn-cyber {% if scenario.difficulty == 'easy' %}btn-cyber-green{% elif scenario.difficulty == 'hard' %}btn-cyber-red{% endif %}">Analyze →</a>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="cyber-card text-center">
+      <p style="color:var(--cyber-muted);">No scenarios loaded. Run: <code style="color:var(--cyber-cyan);">python manage.py seed_phishing</code></p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% if user.is_authenticated %}
+<div class="mt-4 text-center">
+  <a href="{% url 'phishing_sim:progress' %}" class="btn btn-cyber">View My Progress →</a>
+</div>
+{% endif %}
+{% endblock %}

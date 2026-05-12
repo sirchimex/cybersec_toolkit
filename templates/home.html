@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}CyberSec Toolkit — Home{% endblock %}
+{% block content %}
+<div class="text-center mb-5" style="padding: 3rem 0;">
+  <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--cyber-muted);letter-spacing:4px;margin-bottom:1rem;">CYBERSECURITY EDUCATION PLATFORM</div>
+  <h1 style="font-family:'Share Tech Mono',monospace;font-size:3rem;color:var(--cyber-cyan);text-shadow:0 0 30px rgba(0,245,255,0.4);margin-bottom:0.5rem;">CYBERSEC TOOLKIT</h1>
+  <p style="color:var(--cyber-muted);font-size:1.1rem;max-width:600px;margin:0 auto 2rem;">Learn, test, and improve your cybersecurity skills with interactive tools</p>
+</div>
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="cyber-card h-100" style="border-color: rgba(0,245,255,0.3);">
+      <div style="font-size:3rem;margin-bottom:1rem;">🔑</div>
+      <h3 class="cyber-title" style="font-size:1rem;margin-bottom:0.5rem;">Password Strength</h3>
+      <p style="color:var(--cyber-muted);font-size:0.9rem;margin-bottom:1.5rem;">Analyze your password strength in real-time. Get instant feedback on length, character variety, and common patterns. Receive suggestions for stronger alternatives.</p>
+      <div class="mb-3">
+        <span class="badge-cyber" style="margin-right:6px;">Real-time Analysis</span>
+        <span class="badge-cyber">Strength Score</span>
+      </div>
+      <a href="/password/" class="btn btn-cyber">Try It →</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="cyber-card h-100" style="border-color: rgba(0,255,136,0.3);">
+      <div style="font-size:3rem;margin-bottom:1rem;">🔐</div>
+      <h3 class="cyber-title" style="font-size:1rem;margin-bottom:0.5rem;color:var(--cyber-green);">Encryption Tool</h3>
+      <p style="color:var(--cyber-muted);font-size:0.9rem;margin-bottom:1.5rem;">Encrypt and decrypt messages using XOR (educational) and AES-256 (secure). Learn the difference between weak and strong encryption with hands-on examples.</p>
+      <div class="mb-3">
+        <span class="badge-cyber badge-green" style="margin-right:6px;">XOR Cipher</span>
+        <span class="badge-cyber badge-green">AES-256-CBC</span>
+      </div>
+      <a href="/encryption/" class="btn btn-cyber btn-cyber-green">Try It →</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="cyber-card h-100" style="border-color: rgba(255,214,10,0.3);">
+      <div style="font-size:3rem;margin-bottom:1rem;">🎣</div>
+      <h3 class="cyber-title" style="font-size:1rem;margin-bottom:0.5rem;color:var(--cyber-yellow);">Phishing Simulator</h3>
+      <p style="color:var(--cyber-muted);font-size:0.9rem;margin-bottom:1.5rem;">Can you spot a phishing email? Practice identifying suspicious elements in realistic simulated emails. Track your improvement across multiple scenarios.</p>
+      <div class="mb-3">
+        <span class="badge-cyber badge-yellow" style="margin-right:6px;">3 Scenarios</span>
+        <span class="badge-cyber badge-yellow">Progress Tracking</span>
+      </div>
+      <a href="/phishing/" class="btn btn-cyber" style="border-color:var(--cyber-yellow);color:var(--cyber-yellow);">Try It →</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="cyber-card h-100" style="border-color: rgba(191,90,242,0.3);">
+      <div style="font-size:3rem;margin-bottom:1rem;">🔍</div>
+      <h3 class="cyber-title" style="font-size:1rem;margin-bottom:0.5rem;color:var(--cyber-purple);">File Integrity Checker</h3>
+      <p style="color:var(--cyber-muted);font-size:0.9rem;margin-bottom:1.5rem;">Upload any file to generate its SHA-256 hash. Compare against a known hash to verify the file hasn't been tampered with — essential for software verification.</p>
+      <div class="mb-3">
+        <span class="badge-cyber" style="border-color:rgba(191,90,242,0.3);color:var(--cyber-purple);background:rgba(191,90,242,0.1);margin-right:6px;">SHA-256</span>
+        <span class="badge-cyber" style="border-color:rgba(191,90,242,0.3);color:var(--cyber-purple);background:rgba(191,90,242,0.1);">Tamper Detection</span>
+      </div>
+      <a href="/integrity/" class="btn btn-cyber" style="border-color:var(--cyber-purple);color:var(--cyber-purple);">Try It →</a>
+    </div>
+  </div>
+</div>
+{% if not user.is_authenticated %}
+<div class="cyber-card mt-4 text-center" style="border-color:rgba(0,245,255,0.2);">
+  <p style="margin-bottom:0.5rem;color:var(--cyber-muted);">Create an account to track your progress and save your results.</p>
+  <a href="/accounts/login/" class="btn btn-cyber">Login / Register</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block title %}Password Strength Checker{% endblock %}
+{% block extra_head %}
+<style>
+  .strength-bar { height: 6px; background: var(--cyber-border); border-radius: 3px; overflow: hidden; margin: 0.5rem 0; }
+  .strength-fill { height: 100%; border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1), background 0.5s; }
+  .criterion { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .criterion-icon { width: 20px; text-align: center; font-size: 1rem; }
+  .criterion-text { color: var(--cyber-muted); transition: color 0.3s; }
+  .criterion.pass .criterion-text { color: var(--cyber-green); }
+  .criterion.fail .criterion-text { color: var(--cyber-muted); }
+  .password-input-wrapper { position: relative; }
+  .toggle-pw { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--cyber-muted); cursor: pointer; }
+  .score-display { font-family: 'Share Tech Mono', monospace; font-size: 4rem; text-align: center; transition: color 0.5s; line-height: 1; }
+  .suggestion-item { padding: 6px 12px; background: rgba(255,214,10,0.05); border-left: 2px solid var(--cyber-yellow); margin: 4px 0; font-size: 0.85rem; color: var(--cyber-text); border-radius: 0 4px 4px 0; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="cyber-subtitle mb-1">// TOOL 01 //</div>
+  <h1 class="cyber-title">Password Strength Checker</h1>
+  <p style="color:var(--cyber-muted);font-size:0.9rem;">Real-time analysis of password security. No passwords are stored or transmitted beyond this page.</p>
+</div>
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="cyber-card">
+      <label class="cyber-label">Enter Password to Analyze</label>
+      <div class="password-input-wrapper mb-3">
+        <input type="password" id="passwordInput" class="form-control cyber-input" placeholder="type a password to analyze..." autocomplete="new-password" style="padding-right:45px;">
+        <button class="toggle-pw" id="togglePw" type="button"><i class="bi bi-eye"></i></button>
+      </div>
+      <div class="strength-bar"><div class="strength-fill" id="strengthFill" style="width:0%;background:var(--cyber-muted);"></div></div>
+      <div id="strengthLabel" style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;text-align:right;color:var(--cyber-muted);margin-top:4px;">ENTER PASSWORD</div>
+      <hr style="border-color:var(--cyber-border);margin:1.5rem 0;">
+      <div class="cyber-label mb-2">Security Criteria</div>
+      <div id="criteriaList">
+        <div class="criterion" data-key="length_ok"><span class="criterion-icon">⬜</span><span class="criterion-text">At least 8 characters</span></div>
+        <div class="criterion" data-key="length_good"><span class="criterion-icon">⬜</span><span class="criterion-text">12+ characters (recommended)</span></div>
+        <div class="criterion" data-key="has_uppercase"><span class="criterion-icon">⬜</span><span class="criterion-text">Contains uppercase letters</span></div>
+        <div class="criterion" data-key="has_lowercase"><span class="criterion-icon">⬜</span><span class="criterion-text">Contains lowercase letters</span></div>
+        <div class="criterion" data-key="has_digits"><span class="criterion-icon">⬜</span><span class="criterion-text">Contains numbers</span></div>
+        <div class="criterion" data-key="has_symbols"><span class="criterion-icon">⬜</span><span class="criterion-text">Contains special characters</span></div>
+        <div class="criterion" data-key="not_common"><span class="criterion-icon">⬜</span><span class="criterion-text">Not a common password</span></div>
+        <div class="criterion" data-key="no_repeats"><span class="criterion-icon">⬜</span><span class="criterion-text">No repeated characters (3+)</span></div>
+        <div class="criterion" data-key="no_sequential"><span class="criterion-icon">⬜</span><span class="criterion-text">No sequential patterns (123, abc)</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="cyber-card mb-4 text-center">
+      <div class="cyber-label mb-2">Strength Score</div>
+      <div class="score-display" id="scoreDisplay" style="color:var(--cyber-muted);">--</div>
+      <div style="color:var(--cyber-muted);font-size:0.75rem;font-family:'Share Tech Mono',monospace;">/ 100</div>
+      <div id="labelBadge" style="margin-top:0.75rem;"></div>
+    </div>
+    <div class="cyber-card" id="suggestionsCard" style="display:none;">
+      <div class="cyber-label mb-2">⚡ Suggestions</div>
+      <div id="suggestionsList"></div>
+    </div>
+    <div class="cyber-card mt-4" style="border-color:rgba(0,245,255,0.1);">
+      <div class="cyber-label mb-2">💡 Did You Know?</div>
+      <p style="font-size:0.82rem;color:var(--cyber-muted);margin:0;">A password with 16 mixed characters would take <span style="color:var(--cyber-cyan);">billions of years</span> to crack by brute force. Length matters more than complexity!</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const input = document.getElementById('passwordInput');
+const fill = document.getElementById('strengthFill');
+const label = document.getElementById('strengthLabel');
+const score = document.getElementById('scoreDisplay');
+const badge = document.getElementById('labelBadge');
+const sugCard = document.getElementById('suggestionsCard');
+const sugList = document.getElementById('suggestionsList');
+
+const colorMap = { danger:'var(--cyber-red)', warning:'var(--cyber-yellow)', info:'var(--cyber-cyan)', success:'var(--cyber-green)', secondary:'var(--cyber-muted)' };
+const labelColors = { 'Very Weak':'danger','Weak':'warning','Fair':'info','Strong':'success','Very Strong':'success' };
+
+let debounceTimer;
+const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+input.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(analyzePassword, 200);
+});
+
+document.getElementById('togglePw').addEventListener('click', () => {
+  const type = input.type === 'password' ? 'text' : 'password';
+  input.type = type;
+  document.getElementById('togglePw').innerHTML = type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+});
+
+async function analyzePassword() {
+  const pw = input.value;
+  if (!pw) { resetUI(); return; }
+  const res = await fetch('/password/check/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ password: pw })
+  });
+  const data = await res.json();
+  updateUI(data);
+}
+
+function updateUI(data) {
+  const color = colorMap[data.color] || colorMap.secondary;
+  fill.style.width = data.score + '%';
+  fill.style.background = color;
+  score.textContent = data.score;
+  score.style.color = color;
+  label.textContent = data.label.toUpperCase();
+  label.style.color = color;
+  badge.innerHTML = `<span class="badge-cyber" style="background:${color}22;color:${color};border-color:${color}55;">${data.label}</span>`;
+
+  // Update criteria
+  document.querySelectorAll('[data-key]').forEach(el => {
+    const key = el.dataset.key;
+    const pass = data.criteria[key];
+    el.classList.toggle('pass', pass);
+    el.classList.toggle('fail', !pass);
+    el.querySelector('.criterion-icon').textContent = pass ? '✅' : '⬜';
+  });
+
+  // Suggestions
+  if (data.suggestions && data.suggestions.length) {
+    sugCard.style.display = 'block';
+    sugList.innerHTML = data.suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join('');
+  } else {
+    sugCard.style.display = data.score >= 85 ? 'block' : 'none';
+    if (data.score >= 85) sugList.innerHTML = '<div class="suggestion-item" style="border-color:var(--cyber-green);background:rgba(0,255,136,0.05);">✅ Excellent password! Nothing to improve.</div>';
+  }
+}
+
+function resetUI() {
+  fill.style.width = '0%';
+  fill.style.background = 'var(--cyber-muted)';
+  score.textContent = '--';
+  score.style.color = 'var(--cyber-muted)';
+  label.textContent = 'ENTER PASSWORD';
+  label.style.color = 'var(--cyber-muted)';
+  badge.innerHTML = '';
+  sugCard.style.display = 'none';
+  document.querySelectorAll('[data-key]').forEach(el => {
+    el.classList.remove('pass','fail');
+    el.querySelector('.criterion-icon').textContent = '⬜';
+  });
+}
+</script>
+{% endblock %}

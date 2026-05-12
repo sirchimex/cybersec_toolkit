@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Login — CyberSec Toolkit{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-5">
+    <div class="cyber-card">
+      <h2 class="cyber-title text-center mb-4" style="font-size:1.2rem;">// ACCESS PORTAL //</h2>
+      <form method="post">{% csrf_token %}
+        {% if form.errors %}
+          <div class="alert-cyber alert-danger-cyber p-3 mb-3 rounded">Invalid credentials. Try again.</div>
+        {% endif %}
+        <div class="mb-3">
+          <label class="cyber-label">Username</label>
+          <input type="text" name="username" class="form-control cyber-input" placeholder="enter username" autofocus>
+        </div>
+        <div class="mb-4">
+          <label class="cyber-label">Password</label>
+          <input type="password" name="password" class="form-control cyber-input" placeholder="enter password">
+        </div>
+        <button type="submit" class="btn btn-cyber w-100">AUTHENTICATE</button>
+      </form>
+      <hr style="border-color:var(--cyber-border);margin:1.5rem 0;">
+      <p style="text-align:center;color:var(--cyber-muted);font-size:0.85rem;">No account? <a href="/accounts/register/" style="color:var(--cyber-cyan);">Register here</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

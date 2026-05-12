@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}Encryption Tool{% endblock %}
+{% block extra_head %}
+<style>
+  .mode-toggle { display: flex; background: var(--cyber-surface); border: 1px solid var(--cyber-border); border-radius: 6px; padding: 4px; gap: 4px; }
+  .mode-btn { flex: 1; padding: 8px; text-align: center; cursor: pointer; border-radius: 4px; font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 2px; color: var(--cyber-muted); transition: all 0.2s; user-select: none; }
+  .mode-btn.active { background: var(--cyber-cyan); color: var(--cyber-bg); }
+  .enc-type-btn { padding: 8px 16px; cursor: pointer; border: 1px solid var(--cyber-border); background: transparent; color: var(--cyber-muted); font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; border-radius: 4px; transition: all 0.2s; }
+  .enc-type-btn.active { border-color: var(--cyber-green); color: var(--cyber-green); background: rgba(0,255,136,0.08); }
+  .copy-btn { background: none; border: 1px solid var(--cyber-border); color: var(--cyber-muted); border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
+  .copy-btn:hover { border-color: var(--cyber-cyan); color: var(--cyber-cyan); }
+  .warning-box { background: rgba(255,214,10,0.05); border: 1px solid rgba(255,214,10,0.2); border-radius: 4px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--cyber-yellow); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <div class="cyber-subtitle mb-1">// TOOL 02 //</div>
+  <h1 class="cyber-title">Encryption & Decryption</h1>
+  <p style="color:var(--cyber-muted);font-size:0.9rem;">Encrypt and decrypt messages using XOR (educational) or AES-256-CBC (production-grade).</p>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="cyber-card">
+      <!-- Mode toggle -->
+      <div class="cyber-label mb-2">Operation Mode</div>
+      <div class="mode-toggle mb-4">
+        <div class="mode-btn active" id="encMode" onclick="setMode('encrypt')">⬆ ENCRYPT</div>
+        <div class="mode-btn" id="decMode" onclick="setMode('decrypt')">⬇ DECRYPT</div>
+      </div>
+      <!-- Encryption type -->
+      <div class="cyber-label mb-2">Algorithm</div>
+      <div class="d-flex gap-2 mb-4">
+        <button class="enc-type-btn" id="xorBtn" onclick="setType('xor')">XOR Cipher</button>
+        <button class="enc-type-btn active" id="aesBtn" onclick="setType('aes')">AES-256-CBC</button>
+      </div>
+      <div id="xorWarning" class="warning-box mb-4" style="display:none;">
+        ⚠️ <strong>XOR is for educational purposes only.</strong> It is NOT cryptographically secure and should never be used to protect real data.
+      </div>
+      <!-- Input -->
+      <div class="mb-3">
+        <label class="cyber-label" id="inputLabel">Plaintext</label>
+        <textarea id="textInput" class="form-control cyber-input" rows="5" placeholder="Enter text to encrypt..."></textarea>
+      </div>
+      <!-- Key -->
+      <div class="mb-4">
+        <label class="cyber-label" id="keyLabel">Key / Password</label>
+        <input type="password" id="keyInput" class="form-control cyber-input" placeholder="Enter encryption key...">
+        <div id="aesKeyHint" style="font-size:0.75rem;color:var(--cyber-muted);margin-top:4px;">Any password works — AES key is derived via SHA-256</div>
+        <div id="xorKeyHint" style="font-size:0.75rem;color:var(--cyber-muted);margin-top:4px;display:none;">XOR key is repeated over the message length</div>
+      </div>
+      <button id="processBtn" class="btn btn-cyber btn-cyber-green w-100" onclick="processText()">ENCRYPT →</button>
+    </div>
+    <!-- Result -->
+    <div class="cyber-card mt-4" id="resultCard" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="cyber-label">Result</div>
+        <button class="copy-btn" onclick="copyResult()"><i class="bi bi-clipboard"></i> Copy</button>
+      </div>
+      <div id="resultOutput" class="mono-output"></div>
+      <div id="errorOutput" class="alert-cyber alert-danger-cyber p-3 mt-2 rounded" style="display:none;"></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="cyber-card mb-4">
+      <div class="cyber-label mb-2">📖 Algorithm Guide</div>
+      <div id="xorInfo" style="display:none;">
+        <p style="font-size:0.82rem;color:var(--cyber-text);"><strong style="color:var(--cyber-yellow);">XOR Cipher</strong></p>
+        <p style="font-size:0.82rem;color:var(--cyber-muted);">Each character is XORed with the key, repeating the key as needed. Easy to understand but trivially broken — do NOT use for real data.</p>
+        <p style="font-size:0.82rem;color:var(--cyber-muted);"><strong>Weakness:</strong> Known-plaintext attacks, frequency analysis.</p>
+      </div>
+      <div id="aesInfo">
+        <p style="font-size:0.82rem;color:var(--cyber-text);"><strong style="color:var(--cyber-green);">AES-256-CBC</strong></p>
+        <p style="font-size:0.82rem;color:var(--cyber-muted);">Advanced Encryption Standard with 256-bit key in CBC mode. Used by governments, banks, and security systems worldwide.</p>
+        <p style="font-size:0.82rem;color:var(--cyber-muted);"><strong>Features:</strong> Random IV per encryption, SHA-256 key derivation, PKCS#7 padding.</p>
+      </div>
+    </div>
+    <div class="cyber-card">
+      <div class="cyber-label mb-2">⚡ Quick Test</div>
+      <p style="font-size:0.82rem;color:var(--cyber-muted);margin-bottom:0.75rem;">Try the full encrypt → decrypt workflow:</p>
+      <ol style="font-size:0.82rem;color:var(--cyber-muted);padding-left:1.2rem;">
+        <li>Type a message and a key, click Encrypt</li>
+        <li>Copy the encrypted output</li>
+        <li>Switch to Decrypt mode</li>
+        <li>Paste the output and use the same key</li>
+        <li>Get your original message back!</li>
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+let currentMode = 'encrypt';
+let currentType = 'aes';
+const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('encMode').classList.toggle('active', mode === 'encrypt');
+  document.getElementById('decMode').classList.toggle('active', mode === 'decrypt');
+  document.getElementById('inputLabel').textContent = mode === 'encrypt' ? 'Plaintext' : 'Encrypted Text (Base64)';
+  document.getElementById('textInput').placeholder = mode === 'encrypt' ? 'Enter text to encrypt...' : 'Paste encrypted base64 text...';
+  document.getElementById('processBtn').textContent = mode === 'encrypt' ? 'ENCRYPT →' : '← DECRYPT';
+  document.getElementById('resultCard').style.display = 'none';
+}
+
+function setType(type) {
+  currentType = type;
+  document.getElementById('xorBtn').classList.toggle('active', type === 'xor');
+  document.getElementById('aesBtn').classList.toggle('active', type === 'aes');
+  document.getElementById('xorWarning').style.display = type === 'xor' ? 'block' : 'none';
+  document.getElementById('xorInfo').style.display = type === 'xor' ? 'block' : 'none';
+  document.getElementById('aesInfo').style.display = type === 'aes' ? 'block' : 'none';
+  document.getElementById('xorKeyHint').style.display = type === 'xor' ? 'block' : 'none';
+  document.getElementById('aesKeyHint').style.display = type === 'aes' ? 'block' : 'none';
+}
+
+async function processText() {
+  const text = document.getElementById('textInput').value.trim();
+  const key = document.getElementById('keyInput').value.trim();
+  if (!text || !key) { alert('Please fill in both text and key fields.'); return; }
+
+  const endpoint = currentMode === 'encrypt' ? '/encryption/encrypt/' : '/encryption/decrypt/';
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ text, key, type: currentType })
+  });
+  const data = await res.json();
+  const resultCard = document.getElementById('resultCard');
+  const resultOut = document.getElementById('resultOutput');
+  const errOut = document.getElementById('errorOutput');
+  resultCard.style.display = 'block';
+  if (data.error) {
+    resultOut.style.display = 'none';
+    errOut.style.display = 'block';
+    errOut.textContent = '❌ ' + data.error;
+  } else {
+    errOut.style.display = 'none';
+    resultOut.style.display = 'block';
+    resultOut.textContent = data.result;
+  }
+}
+
+function copyResult() {
+  const text = document.getElementById('resultOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+    setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy', 2000);
+  });
+}
+</script>
+{% endblock %}

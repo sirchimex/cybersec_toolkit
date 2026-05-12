@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}{{ scenario.title }} — Phishing Sim{% endblock %}
+{% block extra_head %}
+<style>
+  .email-wrapper { background: #1a1f2e; border: 1px solid var(--cyber-border); border-radius: 6px; padding: 1.5rem; font-family: Arial, sans-serif; }
+  .email-header { background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 4px; margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.8; }
+  .email-body { padding: 0.5rem; font-size: 0.95rem; color: #ddd; line-height: 1.6; }
+  .email-body a { color: #5b9bd5; }
+  /* Clickable suspicious elements */
+  [id] { cursor: pointer; transition: outline 0.2s, background 0.2s; border-radius: 3px; }
+  [id]:hover { outline: 2px dashed var(--cyber-yellow); background: rgba(255,214,10,0.1); }
+  .found { outline: 2px solid var(--cyber-green) !important; background: rgba(0,255,136,0.15) !important; }
+  .missed { outline: 2px solid var(--cyber-red) !important; background: rgba(255,45,85,0.1) !important; }
+  .correct-found { outline: 2px solid var(--cyber-green) !important; background: rgba(0,255,136,0.15) !important; }
+  .feedback-item { padding: 1rem; border-radius: 4px; margin-bottom: 0.75rem; }
+  .feedback-found { background: rgba(0,255,136,0.05); border: 1px solid rgba(0,255,136,0.2); }
+  .feedback-missed { background: rgba(255,45,85,0.05); border: 1px solid rgba(255,45,85,0.2); }
+  .score-circle { width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Share Tech Mono', monospace; font-size: 1.8rem; margin: 0 auto 1rem; }
+  .hint-bar { background: rgba(0,245,255,0.05); border: 1px solid rgba(0,245,255,0.15); border-radius: 4px; padding: 0.75rem 1rem; font-size: 0.82rem; color: var(--cyber-muted); margin-bottom: 1rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'phishing_sim:home' %}" style="color:var(--cyber-muted);font-size:0.85rem;text-decoration:none;">← Back to Scenarios</a>
+</div>
+<div class="mb-4">
+  <h1 class="cyber-title" style="font-size:1.2rem;">{{ scenario.title }}</h1>
+  <span class="badge-cyber {% if scenario.difficulty == 'easy' %}badge-green{% elif scenario.difficulty == 'medium' %}badge-yellow{% else %}badge-red{% endif %}">{{ scenario.difficulty|upper }}</span>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="hint-bar"><i class="bi bi-info-circle"></i> <strong>Instructions:</strong> Click on any element you think is suspicious. Found elements will highlight in green. When ready, click "Submit Answers".</div>
+    <div id="scenarioContent">{{ scenario.content|safe }}</div>
+    <div class="mt-3 d-flex gap-2 align-items-center">
+      <button id="submitBtn" class="btn btn-cyber" onclick="submitAnswers()">Submit Answers</button>
+      <span id="foundCount" style="color:var(--cyber-muted);font-size:0.85rem;font-family:'Share Tech Mono',monospace;">0 / {{ total_indicators }} found</span>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="cyber-card" id="helpPanel">
+      <div class="cyber-label mb-2">🎯 Challenge</div>
+      <p style="font-size:0.85rem;color:var(--cyber-muted);">This {{ scenario.scenario_type }} contains <strong style="color:var(--cyber-cyan);">{{ total_indicators }} suspicious element{{ total_indicators|pluralize }}</strong>. Find them all by clicking on the highlighted areas.</p>
+      <hr style="border-color:var(--cyber-border);">
+      <div class="cyber-label mb-2">Tips</div>
+      <ul style="font-size:0.82rem;color:var(--cyber-muted);padding-left:1.2rem;">
+        <li>Check sender email domains carefully</li>
+        <li>Hover over links to see real destinations</li>
+        <li>Watch for urgency/threat language</li>
+        <li>Verify any attachments and their extensions</li>
+      </ul>
+    </div>
+    <!-- Results panel (hidden initially) -->
+    <div id="resultsPanel" style="display:none;">
+      <div class="cyber-card text-center mb-3">
+        <div class="cyber-label mb-2">Your Score</div>
+        <div class="score-circle" id="scoreCircle"></div>
+        <div id="scoreText"></div>
+      </div>
+      <div class="cyber-card">
+        <div class="cyber-label mb-2">Detailed Feedback</div>
+        <div id="feedbackList"></div>
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-cyber" onclick="resetScenario()">Try Again</button>
+        <a href="{% url 'phishing_sim:home' %}" class="btn btn-cyber">Next →</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const foundIds = new Set();
+const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+const totalIndicators = {{ total_indicators }};
+
+// Make all elements with IDs clickable
+document.querySelectorAll('#scenarioContent [id]').forEach(el => {
+  el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const id = this.id;
+    if (foundIds.has(id)) {
+      foundIds.delete(id);
+      this.classList.remove('found');
+    } else {
+      foundIds.add(id);
+      this.classList.add('found');
+    }
+    document.getElementById('foundCount').textContent = `${foundIds.size} / ${totalIndicators} marked`;
+  });
+});
+
+async function submitAnswers() {
+  const res = await fetch('{% url "phishing_sim:submit" scenario.pk %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ found: Array.from(foundIds) })
+  });
+  const data = await res.json();
+  showResults(data);
+}
+
+function showResults(data) {
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('helpPanel').style.display = 'none';
+  document.getElementById('resultsPanel').style.display = 'block';
+
+  // Color-code elements
+  data.feedback.forEach(f => {
+    const el = document.getElementById(f.element_id);
+    if (el) {
+      el.classList.remove('found');
+      el.classList.add(f.found ? 'correct-found' : 'missed');
+    }
+  });
+
+  // Score circle
+  const score = data.score;
+  const color = score >= 80 ? 'var(--cyber-green)' : score >= 50 ? 'var(--cyber-yellow)' : 'var(--cyber-red)';
+  const circle = document.getElementById('scoreCircle');
+  circle.style.border = `3px solid ${color}`;
+  circle.style.color = color;
+  circle.textContent = score + '%';
+  document.getElementById('scoreText').innerHTML = `<span style="color:${color};font-family:'Share Tech Mono',monospace;">${data.found_correct}/${data.total} indicators found</span>`;
+
+  // Feedback list
+  const list = document.getElementById('feedbackList');
+  list.innerHTML = data.feedback.map(f => `
+    <div class="feedback-item ${f.found ? 'feedback-found' : 'feedback-missed'}">
+      <div style="font-size:0.82rem;font-weight:600;color:${f.found ? 'var(--cyber-green)' : 'var(--cyber-red)'};">
+        ${f.found ? '✅' : '❌'} ${f.description}
+      </div>
+      <div style="font-size:0.78rem;color:var(--cyber-muted);margin-top:4px;">${f.tip}</div>
+    </div>
+  `).join('');
+}
+
+function resetScenario() {
+  foundIds.clear();
+  document.querySelectorAll('#scenarioContent [id]').forEach(el => {
+    el.classList.remove('found','missed','correct-found');
+  });
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('foundCount').textContent = `0 / ${totalIndicators} found`;
+  document.getElementById('helpPanel').style.display = 'block';
+  document.getElementById('resultsPanel').style.display = 'none';
+}
+</script>
+{% endblock %}
