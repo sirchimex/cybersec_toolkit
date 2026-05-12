@@ -13,8 +13,8 @@ except ImportError as exc:
         'Create that file with SECRET_KEY = "your-secret-key".'
     ) from exc
 
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+DEBUG = False
+ALLOWED_HOSTS = ['sirchimex.pythonanywhere.com','127.0.0.1', 'localhost' ]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
