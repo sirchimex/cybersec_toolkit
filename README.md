@@ -92,4 +92,3 @@ python manage.py test --verbosity=2
 - **AES-256-CBC** uses random IV per encryption + SHA-256 key derivation
 - **Passwords are never stored** — only metadata (length, criteria met)
 - **File size limited** to 10MB for uploads
-- Change `SECRET_KEY` in `settings.py` before production deployment
